@@ -1,3 +1,14 @@
+// Copyright (c) 2015 Frank McSherry
+
+// 
+//  @author Merve Gulmez (merve.gulmez@ericsson.com)
+//  @version 0.1
+//  @date 2022-08-31
+//  @brief added Vec<u8> optimization 
+//  @copyright © Ericsson AB 2022-2023
+//  SPDX-License-Identifier: MIT
+
+#![feature(specialization)]
 //! Abomonation (spelling intentional) is a fast serialization / deserialization crate.
 //!
 //! Abomonation takes typed elements and simply writes their contents as binary.
@@ -479,13 +490,13 @@ impl Abomonation for String {
 
 impl<T: Abomonation> Abomonation for Vec<T> {
     #[inline]
-    unsafe fn entomb<W: Write>(&self, write: &mut W) -> IOResult<()> {
+    default unsafe fn entomb<W: Write>(&self, write: &mut W) -> IOResult<()> {
         write.write_all(typed_to_bytes(&self[..]))?;
         for element in self.iter() { element.entomb(write)?; }
         Ok(())
     }
     #[inline]
-    unsafe fn exhume<'a,'b>(&'a mut self, bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
+    default unsafe fn exhume<'a,'b>(&'a mut self, bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
 
         // extract memory from bytes to back our vector
         let binary_len = self.len() * mem::size_of::<T>();
@@ -502,11 +513,37 @@ impl<T: Abomonation> Abomonation for Vec<T> {
         }
     }
     #[inline]
-    fn extent(&self) -> usize {
+    default fn extent(&self) -> usize {
         let mut sum = mem::size_of::<T>() * self.len();
         for element in self.iter() {
             sum += element.extent();
         }
+        sum
+    }
+}
+
+impl Abomonation for Vec<u8> {
+    #[inline]
+    unsafe fn entomb<W: Write>(&self, write: &mut W) -> IOResult<()> {
+        write.write_all(typed_to_bytes(&self[..]))?;
+        Ok(())
+    }
+    #[inline]
+    unsafe fn exhume<'a,'b>(&'a mut self, bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
+
+        // extract memory from bytes to back our vector
+        let binary_len = self.len() * mem::size_of::<u8>();
+        if binary_len > bytes.len() { None }
+        else {
+            let (mine, mut rest) = bytes.split_at_mut(binary_len);
+            let slice = std::slice::from_raw_parts_mut(mine.as_mut_ptr() as *mut u8, self.len());
+            std::ptr::write(self, Vec::from_raw_parts(slice.as_mut_ptr(), self.len(), self.len()));
+            Some(rest)
+        }
+    }
+    #[inline]
+    fn extent(&self) -> usize {
+        let mut sum = mem::size_of::<u8>() * self.len();
         sum
     }
 }

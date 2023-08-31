@@ -1,3 +1,14 @@
+// Copyright (c) 2015 Frank McSherry
+
+// 
+//  @author Merve Gulmez (merve.gulmez@ericsson.com) 
+//  @version 0.1
+//  @date 2022-08-31
+//  @brief added Vec<u8> test
+// 
+//  Copyright © Ericsson AB 2023
+//  SPDX-License-Identifier: MIT License
+
 extern crate abomonation;
 
 use abomonation::*;
@@ -104,11 +115,15 @@ fn test_multiple_encode_decode() {
     unsafe { encode(&0u32, &mut bytes).unwrap(); }
     unsafe { encode(&7u64, &mut bytes).unwrap(); }
     unsafe { encode(&vec![1,2,3], &mut bytes).unwrap(); }
+    unsafe { encode(&vec![1i32, 2, 3], &mut bytes).unwrap(); }
+    unsafe { encode(&vec![261i32, 262, 263], &mut bytes).unwrap(); }
     unsafe { encode(&"grawwwwrr".to_owned(), &mut bytes).unwrap(); }
 
     let (t, r) = unsafe { decode::<u32>(&mut bytes) }.unwrap(); assert!(*t == 0);
     let (t, r) = unsafe { decode::<u64>(r) }.unwrap(); assert!(*t == 7);
-    let (t, r) = unsafe { decode::<Vec<i32>>(r) }.unwrap(); assert!(*t == vec![1,2,3]);
+    let (t, r) = unsafe { decode::<Vec<u8>>(r) }.unwrap(); assert!(*t == vec![1,2,3]);
+    let (t, r) = unsafe { decode::<Vec<i32>>(r) }.unwrap(); assert!(*t == vec![1,2,3]); 
+    let (t, r) = unsafe { decode::<Vec<i32>>(r) }.unwrap(); assert!(*t == vec![261,262,263]);    
     let (t, _r) = unsafe { decode::<String>(r) }.unwrap(); assert!(*t == "grawwwwrr".to_owned());
 }
 
